@@ -7,7 +7,8 @@
  - 修复了少量文本错误
  
 #### 使用须知
-请将登录使用的手机号和密码分别卸载userInformation.txt文件的第一行和第二行
+在同目录下新建userInformation.txt文件  
+并将手机号和密码分别写入userInformation.txt文件的第一行和第二行
 
 #### To do list
 
