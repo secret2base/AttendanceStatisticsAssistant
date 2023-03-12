@@ -1,7 +1,7 @@
-### AttendanceStatisticsAssistanc  v1.0
+### AttendanceStatisticsAssistant  v1.0
 得力e+ APP打卡时间自动统计工具
 
-相较于beta版,1.0版本更新如下
+相较于beta版,1.0版本更新内容如下
 
  - 全自动登录和读取信息,不会再受sid改变的影响
  - 修复了少量文本错误
