@@ -1,5 +1,5 @@
 requests_test.py
 userInformation.txt
 token.json
-.idea/
-_pychche_/
+/.idea
+/_pychche_
