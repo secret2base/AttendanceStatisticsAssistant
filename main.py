@@ -8,13 +8,22 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QPlainTextEdit
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon
+import hashlib
+import requests
+from Headers import headerLogin, headerOrgId, headerOriginId, headerGoal
+import json
+import uuid
 
-# URL = "https://kq.delicloud.com/attend/index/record?sid=vumk4mp0bfm7bjkltshaqgl9u0"
-# URL = "https://kq.delicloud.com/attend/index/record?sid=t5iv4mlfabdgnhh5tc5esc3sl3"
-f = open('./PleaseInputYourWebsite.txt', 'r')
-URL = f.readline()
-f.close()
 weeklyClockInDict = dict()
+
+def userInformationRead():
+    f = open('userInformation.txt', 'r')
+    phoneNumber = f.readline()
+    phoneNumber = phoneNumber.rstrip()
+    password = f.readline()
+    f.close()
+    md5 = hashlib.md5(password.encode(encoding='utf-8'))
+    return phoneNumber, md5.hexdigest()
 
 def test():
     browser = webdriver.Chrome()
@@ -156,7 +165,7 @@ def showUI(weeklyClockInDict, totalTime):
     size = w.geometry()
     w.move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2)
 
-    w.setWindowTitle("打卡时长统计工具 beta")
+    w.setWindowTitle("打卡时长统计助手 v1.0")
     w.setWindowIcon(QIcon("icon.ico"))
 
     text = QPlainTextEdit(w)
@@ -176,7 +185,7 @@ def showUI(weeklyClockInDict, totalTime):
         content = "恭喜您，本周打卡任务已完成，记得写周报喵！"
         text.appendPlainText(content)
     else:
-        content = "还需打卡 " + str(round(54-totalTime,2)) + " 小时，请继续努力！"
+        content = "还需打卡 " + str(round(54-totalTime,2)) + " 小时，请继续努力喵！"
         text.appendPlainText(content)
 
     text.setReadOnly(True)
@@ -186,12 +195,72 @@ def showUI(weeklyClockInDict, totalTime):
     w.show()
     sys.exit(app.exec_())
 
+'''
+    
+'''
+def login(phoneNumber, password):
+    # Get Login Token and User_id
+    # print(phoneNumber)
+    # print(password)
+    rLogin = requests.post("https://v2-app.delicloud.com/api/v2.0/auth/loginMobile",
+                       headers=headerLogin,
+                       json={'password': password, 'mobile': phoneNumber})
+    loginInformation = rLogin.content.decode(rLogin.apparent_encoding)
+    loginInformation = json.loads(loginInformation)
+    token = loginInformation["data"]["token"]
+    user_id = loginInformation["data"]["user_id"]
+    # print("token: ", token)
+    # print("user_id: ", user_id)
+
+    # Get Organization_id
+    GMT_FORMAT = '%a, %d %b %Y %H:%M:%S GMT'
+    GMT_TIME = datetime.datetime.utcnow().strftime(GMT_FORMAT)
+
+    headerOrgId["user_id"] = user_id
+    headerOrgId["Authorization"] = token
+    headerOrgId["If-Modified-Since"] = GMT_TIME
+
+    urlFindOrgId = "https://v2-app.delicloud.com/api/v2.3/org/findOrgDetailByUserId?user_id=" + user_id + "&is_only_usable=true"
+    rOrgid = requests.get(urlFindOrgId, headers=headerOrgId)
+    orgInfo = rOrgid.content.decode(rOrgid.apparent_encoding)
+    orgInfo = json.loads(orgInfo)
+    org_id = orgInfo["data"][0]["id"]
+    # print("Org Id: ", org_id)
+
+    # Get Orgin_member_id
+    headerOriginId["org_id"] = org_id
+    headerOriginId["user_id"] = user_id
+    headerOriginId["Authorization"] = token
+    headerOriginId["If-Modified-Since"] = GMT_TIME
+
+    urlFindOriginId = "https://v2-app.delicloud.com/api/v2.0/orgUser/findOrgUserDetailByOrgIdAndUserId?org_id=" + org_id + "&user_id=" + user_id
+    # print(urlFindOriginId)
+    rOriginId = requests.get(urlFindOriginId, headers=headerOriginId)
+    originInfo = rOriginId.content.decode(rOriginId.apparent_encoding)
+    # print(originInfo)
+    originInfo = json.loads(originInfo)
+    origin_member_id = originInfo["data"]["origin_member_id"]
+    # print("Origin_member_id: ", origin_member_id)
+
+    # Get MainWindow Info
+    headerGoal["org_id"] = org_id
+    headerGoal["token"] = token
+    headerGoal["user_id"] = user_id
+    headerGoal["v1_member_id"] = origin_member_id
+    headerGoal["uuid"] = str(uuid.uuid4())
+
+    urlMW = "https://kq.delicloud.com/attend/index/home"
+    rGoal = requests.get(urlMW, headers=headerGoal)
+    goalInfo = rGoal.content.decode(rGoal.apparent_encoding)
+    # print(goalInfo)
+    goalInfo = json.loads(goalInfo)
+    result = goalInfo["data"]["list"][0]["url"]
+    # print(result)
+    return result
 
 if __name__ == "__main__":
+    phoneNumber, password = userInformationRead()
+    URL = login(phoneNumber, password)
     thisMonth, lastMonth = spider(URL)
     totalTime = calculate(thisMonth, lastMonth)
-    # print("Total Time: ", totalTime)
-
-    # for key in weeklyClockInDict:
-    #     print(key, ":", weeklyClockInDict[key])
     showUI(weeklyClockInDict, totalTime)
