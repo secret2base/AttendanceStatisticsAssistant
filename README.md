@@ -11,9 +11,10 @@
  
 #### 使用方法
 在同目录下新建userInformation.txt文件  
-并将手机号和密码分别写入userInformation.txt文件的第一行和第二行
+并将手机号和密码分别写入userInformation.txt文件的第一行和第二行  
 ps. 基于Chrome内核实现，请确保电脑已安装Chrome
-
+#### 示意图
+![节点](./img/example.png)
 #### 其他
 
  - 保存了selenium库依赖，好处是代码可以简洁一点，缺点是运行速度较慢（可能花费5-6秒）
