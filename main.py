@@ -13,7 +13,9 @@ import requests
 from Headers import headerLogin, headerOrgId, headerOriginId, headerGoal
 import json
 import uuid
+import logging
 
+logging.basicConfig(level=logging.INFO)
 weeklyClockInDict = dict()
 
 def userInformationRead():
@@ -61,25 +63,29 @@ def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
     # 根据当前时间确定日期与周次
     time_tuple = time.localtime(time.time())
     theWeekToday = datetime.date(time_tuple[0], time_tuple[1], time_tuple[2]).isoweekday()
-    # print("今天是{}年{}月{}日， 星期{}".format(time_tuple[0], time_tuple[1], time_tuple[2], theWeekToday))
+    logging.info("今天是{}年{}月{}日， 星期{}".format(time_tuple[0], time_tuple[1], time_tuple[2], theWeekToday))
 
-    # 根据周次是否隔月确定两种计算方法
-    startDayThisWeek = time_tuple[2]-(theWeekToday-1)
+    startDayThisWeek = time_tuple[2] - theWeekToday + 1
 
-    clockInTimeSum=0
+    clockInTimeSum = 0
     if startDayThisWeek >= 1:
         clockInTimeSum = clockInTimeSum + sumTime(startDayThisWeek, time_tuple[2], clockInTimeThisMonth)
     else:
-        clockInTimeSum = clockInTimeSum + sumTime(len(clockInTimeLastMonth)-1, len(clockInTimeLastMonth)-(1-startDayThisWeek)+2, clockInTimeLastMonth) + sumTime(1, time_tuple[2], clockInTimeThisMonth)
+        clockInTimeSum = clockInTimeSum \
+                         + sumTime(len(clockInTimeLastMonth) + startDayThisWeek, len(clockInTimeLastMonth), clockInTimeLastMonth) \
+                         + sumTime(1, time_tuple[2], clockInTimeThisMonth)
 
     return clockInTimeSum
 
 
 def sumTime(startDay, endDay, clockInTimeMonthly):
     # i+1为当天日期，clockInTimeMonthly[i]为当天所有打卡时间
+
+    startTime = time.time()
+
     clockInTimeSum = 0
-    # print("Start Day: ", startDay)
-    # print("End Day: ", endDay)
+    logging.info("起始日期: %d", startDay)
+    logging.info("结束日期: %d", endDay)
     for i in range(startDay-1, endDay):
         # print("Date {}: ".format(i+1))
         j = 0
@@ -97,6 +103,7 @@ def sumTime(startDay, endDay, clockInTimeMonthly):
         # print("    ClockInTimeToday: {:.2f}".format(clockInTimeDaily), "hours")
         weeklyClockInDict[i+1] = clockInTimeDaily
         clockInTimeSum = clockInTimeSum + clockInTimeDaily
+    logging.info("sumTime Cost: %f s", time.time()-startTime)
     return clockInTimeSum
 
 def isCorrectTimeSlot(startTime, endTime):
@@ -116,26 +123,34 @@ def isCorrectTimeSlot(startTime, endTime):
     补充：需要上个月的考勤数据
 '''
 def spider(URL):
+
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('log-level=3')
 
     browser = webdriver.Chrome(options=options)
     browser.get(URL)
-
+    time.sleep(1)
     clockInTimeThisMonth = calendarRead(browser)
-
     head = browser.find_element(By.XPATH, '//*[@id="getMonthData"]/em')
     head.click()
     time.sleep(1)
 
     clockInTimeLastMonth = calendarRead(browser)
+    logging.info("本月天数: %d", len(clockInTimeThisMonth))
+    logging.info("上月天数: %d", len(clockInTimeLastMonth))
+
+    browser.quit()
 
     return clockInTimeThisMonth, clockInTimeLastMonth
 
 
 def calendarRead(browser):
+    startTime = time.time()
+
     sourceCode = BeautifulSoup(browser.page_source, "html.parser")
+    # with open('test.txt', 'w') as f:
+    #     f.write(browser.page_source)
     dateList = sourceCode.select('ul[class="date-list clearfix"]')
 
     monthlyRecord = list()
@@ -153,6 +168,7 @@ def calendarRead(browser):
         timeStamp = re.findall(pattern, monthlyRecord[i])
         clockInTimeMonthly.append(timeStamp)
 
+    logging.info("calendarRead Cost: %f s", time.time()-startTime)
     return clockInTimeMonthly
 
 
@@ -165,7 +181,7 @@ def showUI(weeklyClockInDict, totalTime):
     size = w.geometry()
     w.move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2)
 
-    w.setWindowTitle("打卡时长统计助手 v1.0")
+    w.setWindowTitle("打卡时长统计助手 v1.1")
     w.setWindowIcon(QIcon("icon.ico"))
 
     text = QPlainTextEdit(w)
@@ -195,13 +211,10 @@ def showUI(weeklyClockInDict, totalTime):
     w.show()
     sys.exit(app.exec_())
 
-'''
-    
-'''
 def login(phoneNumber, password):
     # Get Login Token and User_id
-    # print(phoneNumber)
-    # print(password)
+    startTime = time.time()
+
     rLogin = requests.post("https://v2-app.delicloud.com/api/v2.0/auth/loginMobile",
                        headers=headerLogin,
                        json={'password': password, 'mobile': phoneNumber})
@@ -252,10 +265,11 @@ def login(phoneNumber, password):
     urlMW = "https://kq.delicloud.com/attend/index/home"
     rGoal = requests.get(urlMW, headers=headerGoal)
     goalInfo = rGoal.content.decode(rGoal.apparent_encoding)
-    # print(goalInfo)
     goalInfo = json.loads(goalInfo)
     result = goalInfo["data"]["list"][0]["url"]
-    # print(result)
+    logging.info("URL of Calendar: %s", result)
+
+    logging.info("LoginIn Cost: %f s", time.time()-startTime)
     return result
 
 if __name__ == "__main__":
