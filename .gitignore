@@ -1,5 +1,12 @@
 requests_test.py
 userInformation.txt
+userInformation1.txt
+userInformation2.txt
 token.json
+chromedriver.exe
+localTest.py
+test.txt
 /.idea
 /_pychche_
+build/
+/dist

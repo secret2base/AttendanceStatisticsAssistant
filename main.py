@@ -1,5 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import re
 import time
@@ -17,6 +19,12 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 weeklyClockInDict = dict()
+
+class Date:
+    def __init__(self,year,month,day):
+        self.year=year
+        self.month=month
+        self.day=day
 
 def userInformationRead():
     f = open('userInformation.txt', 'r')
@@ -58,27 +66,93 @@ def test():
         for ii in timeStamp:
             print(ii)
 
-
-def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
+def calculate2(clockInTimeThisMonth, clockInTimeLastMonth):
     # 根据当前时间确定日期与周次
-    time_tuple = time.localtime(time.time())
-    theWeekToday = datetime.date(time_tuple[0], time_tuple[1], time_tuple[2]).isoweekday()
-    logging.info("今天是{}年{}月{}日， 星期{}".format(time_tuple[0], time_tuple[1], time_tuple[2], theWeekToday))
+    # theDateToday = datetime.datetime.today()
+    # theWeekToday = theDateToday.isoweekday()
+    # firstDayThisWeek = theDateToday - datetime.timedelta(days=theDateToday.weekday())
+    # firstDayLastWeek = firstDayThisWeek - datetime.timedelta(days=7)
+    # lastDayLastWeek = firstDayThisWeek - datetime.timedelta(days=1)
+    theDateToday = Date(2023, 12, 10)
+    firstDayThisWeek = Date(2023, 12, 4)
+    firstDayLastWeek = Date(2023, 11, 27)
+    lastDayLastWeek = Date(2023, 12, 3)
+    # time_tuple = time.localtime(time.time())
+    # theWeekToday = datetime.date(time_tuple[0], time_tuple[1], time_tuple[2]).isoweekday()
+    # logging.info("今天是{}年{}月{}日， 星期{}".format(2023, 12, 10, 7))
 
-    startDayThisWeek = time_tuple[2] - theWeekToday + 1
+    # startDayThisWeek = time_tuple[2] - theWeekToday + 1
 
     clockInTimeSum = 0
-    if startDayThisWeek >= 1:
-        clockInTimeSum = clockInTimeSum + sumTime(startDayThisWeek, time_tuple[2], clockInTimeThisMonth)
+    lastWeekTotalTime = 0
+
+    if firstDayThisWeek.month == theDateToday.month:
+        clockInTimeSum = clockInTimeSum + sumTime(firstDayThisWeek.day, theDateToday.day, clockInTimeThisMonth, 1)
     else:
-        clockInTimeSum = clockInTimeSum \
-                         + sumTime(len(clockInTimeLastMonth) + startDayThisWeek, len(clockInTimeLastMonth), clockInTimeLastMonth) \
-                         + sumTime(1, time_tuple[2], clockInTimeThisMonth)
+        lastDayOfLastMonth = datetime.date(firstDayThisWeek.year + int(firstDayThisWeek.month / 12),
+                                           (firstDayThisWeek.month % 12) + 1, 1) - datetime.timedelta(days=1)
+        clockInTimeSum = clockInTimeSum + sumTime(firstDayThisWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,
+                                                  1) + sumTime(1, theDateToday.day, clockInTimeThisMonth, 1)
 
-    return clockInTimeSum
+    if firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month == theDateToday.month:
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeThisMonth,0)
+    elif firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month != theDateToday.month:
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeLastMonth,0)
+    else:
+        lastDayOfLastMonth = datetime.date(firstDayLastWeek.year + int(firstDayLastWeek.month / 12), (firstDayLastWeek.month % 12) + 1, 1) - datetime.timedelta(days=1)
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,0) + sumTime(1, lastDayLastWeek.day, clockInTimeThisMonth,0)
+    # print("LastWeekTime: ", lastWeekTotalTime)
+    return clockInTimeSum, lastWeekTotalTime
 
+'''
+    calculate函数的输入为上个月及本月每天的考勤数据
+    根据这两个数组计算每天的考勤时间
+'''
+def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
+    # 根据当前时间确定日期与周次
+    theDateToday = datetime.datetime.today()
+    theWeekToday = theDateToday.isoweekday()
+    firstDayThisWeek = theDateToday - datetime.timedelta(days=theDateToday.weekday())
+    firstDayLastWeek = firstDayThisWeek - datetime.timedelta(days=7)
+    lastDayLastWeek = firstDayThisWeek - datetime.timedelta(days=1)
 
-def sumTime(startDay, endDay, clockInTimeMonthly):
+    # time_tuple = time.localtime(time.time())
+    # theWeekToday = datetime.date(time_tuple[0], time_tuple[1], time_tuple[2]).isoweekday()
+    logging.info("今天是{}年{}月{}日， 星期{}".format(theDateToday.year, theDateToday.month, theDateToday.day, theWeekToday))
+
+    # startDayThisWeek = time_tuple[2] - theWeekToday + 1
+
+    clockInTimeSum = 0
+    lastWeekTotalTime = 0
+
+    if firstDayThisWeek.month == theDateToday.month:
+        clockInTimeSum = clockInTimeSum + sumTime(firstDayThisWeek.day, theDateToday.day, clockInTimeThisMonth,1)
+    else:
+        lastDayOfLastMonth = datetime.date(firstDayThisWeek.year + int(firstDayThisWeek.month / 12), (firstDayThisWeek.month % 12) + 1, 1) - datetime.timedelta(days=1)
+        clockInTimeSum = clockInTimeSum + sumTime(firstDayThisWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,1) + sumTime(1, theDateToday.day, clockInTimeThisMonth,1)
+    # startDayThisWeek变量用于判断当前周是否是跨月周，如果跨月需要额外的计算
+    # if startDayThisWeek >= 1:
+    #     clockInTimeSum = clockInTimeSum + sumTime(startDayThisWeek, time_tuple[2], clockInTimeThisMonth)
+    # else:
+    #     clockInTimeSum = clockInTimeSum \
+    #                      + sumTime(len(clockInTimeLastMonth) + startDayThisWeek, len(clockInTimeLastMonth), clockInTimeLastMonth) \
+    #                      + sumTime(1, time_tuple[2], clockInTimeThisMonth)
+
+    if firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month == theDateToday.month:
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeThisMonth,0)
+    elif firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month != theDateToday.month:
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeLastMonth,0)
+    else:
+        lastDayOfLastMonth = datetime.date(firstDayLastWeek.year + int(firstDayLastWeek.month / 12), (firstDayLastWeek.month % 12) + 1, 1) - datetime.timedelta(days=1)
+        lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,0) + sumTime(1, lastDayLastWeek.day, clockInTimeThisMonth,0)
+
+    return clockInTimeSum,lastWeekTotalTime
+
+'''
+    sumTime函数用于计算一周内每天的考勤时间，核心功能实现函数
+    flag判断上周函数本周
+'''
+def sumTime(startDay, endDay, clockInTimeMonthly, flag):
     # i+1为当天日期，clockInTimeMonthly[i]为当天所有打卡时间
 
     startTime = time.time()
@@ -90,22 +164,80 @@ def sumTime(startDay, endDay, clockInTimeMonthly):
         # print("Date {}: ".format(i+1))
         j = 0
         clockInTimeDaily = 0
-        while j < len(clockInTimeMonthly[i])-1:
-            # print("j:", j)
-            if isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) == 0:
-                clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j+1][0]) - 13 + (int(clockInTimeMonthly[i][j+1][1]) - 30)*1.0/60
-                j = j + 2
-            elif isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) > 0:
-                clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j + 1][0]) - int(clockInTimeMonthly[i][j][0]) + (int(clockInTimeMonthly[i][j + 1][1]) - int(clockInTimeMonthly[i][j][1])) * 1.0 / 60
-                j = j + 2
+
+        unused, m, a, e = timePartition(clockInTimeMonthly[i])
+        # print(i, unused, m, a, e)
+        # 如果上午有不少于两次的打卡
+        if m >= 2:
+            tmp = int(clockInTimeMonthly[i][unused + m - 1][0]) - int(clockInTimeMonthly[i][unused][0]) + (
+                        int(clockInTimeMonthly[i][unused + m - 1][1]) - int(
+                    clockInTimeMonthly[i][unused][1])) * 1.0 / 60
+            clockInTimeDaily = clockInTimeDaily + tmp
+        # 如果下午有不少于两次的打卡
+        # print("上午时间：", clockInTimeDaily)
+        # 这里要扣除早于13:30的时间
+        if a >= 2:
+            if int(clockInTimeMonthly[i][unused + m][0]) * 60 + int(clockInTimeMonthly[i][unused + m][1]) > 810:
+                tmp = int(clockInTimeMonthly[i][unused + m + a - 1][0]) - int(clockInTimeMonthly[i][unused + m][0]) + (
+                            int(clockInTimeMonthly[i][unused + m + a - 1][1]) - int(
+                        clockInTimeMonthly[i][unused + m][1])) * 1.0 / 60
             else:
-                j = j + 1
+                tmp = int(clockInTimeMonthly[i][unused + m + a - 1][0]) - 13 + (
+                            int(clockInTimeMonthly[i][unused + m + a - 1][1]) - 30) * 1.0 / 60
+            clockInTimeDaily = clockInTimeDaily + tmp
+        # print("下午时间：", clockInTimeDaily)
+        # 晚上同理
+        if e >= 2:
+            tmp = int(clockInTimeMonthly[i][unused + m + a + e - 1][0]) - int(
+                clockInTimeMonthly[i][unused + m + a][0]) + (
+                              int(clockInTimeMonthly[i][unused + m + a + e - 1][1]) - int(
+                          clockInTimeMonthly[i][unused + m + a][1])) * 1.0 / 60
+            clockInTimeDaily = clockInTimeDaily + tmp
+        # print("晚上时间：", clockInTimeDaily)
+        # 分别计算三个时段的时间
+
+        # while j < len(clockInTimeMonthly[i])-1:
+        #     # print("j:", j)
+        #     if isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) == 0:
+        #         clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j+1][0]) - 13 + (int(clockInTimeMonthly[i][j+1][1]) - 30)*1.0/60
+        #         j = j + 2
+        #     elif isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) > 0:
+        #         clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j + 1][0]) - int(clockInTimeMonthly[i][j][0]) + (int(clockInTimeMonthly[i][j + 1][1]) - int(clockInTimeMonthly[i][j][1])) * 1.0 / 60
+        #         j = j + 2
+        #     else:
+        #         j = j + 1
         # print("    ClockInTimeToday: {:.2f}".format(clockInTimeDaily), "hours")
-        weeklyClockInDict[i+1] = clockInTimeDaily
+        if flag == 1:
+            weeklyClockInDict[i+1] = clockInTimeDaily
         clockInTimeSum = clockInTimeSum + clockInTimeDaily
     logging.info("sumTime Cost: %f s", time.time()-startTime)
     return clockInTimeSum
 
+
+def timePartition(dailyClockInTime):
+    morning = afternoon = evening = 0
+    unused = 0
+    i = 0
+    while i<len(dailyClockInTime):
+        if int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) < 450:
+            unused = unused + 1
+        elif int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) >= 450 and int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) <= 750:
+            morning = morning + 1
+        elif int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) >= 755 and int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) <= 1110:
+            afternoon = afternoon + 1
+        elif int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) >= 1115 and int(dailyClockInTime[i][0])*60+int(dailyClockInTime[i][1]) <= 1439:
+            evening = evening + 1
+        i = i + 1
+    return unused, morning, afternoon, evening
+
+'''
+    isCorrectTimeSlot函数用于判断打卡的时间是否在规定时间内
+    返回值0代表中午12:30-1:30
+    返回值1代表上午正常打卡时间
+    返回值2代表下午正常打卡时间
+    返回值3代表晚上正常打卡时间（12:00之前）
+    返回值-1代表其他时间
+'''
 def isCorrectTimeSlot(startTime, endTime):
     if int(startTime[0])*60+int(startTime[1]) >= 450 and int(endTime[0])*60+int(endTime[1]) <= 750:
         return 1
@@ -128,13 +260,15 @@ def spider(URL):
     options.add_argument('--headless')
     options.add_argument('log-level=3')
 
-    browser = webdriver.Chrome(options=options)
+    # browser = webdriver.Chrome(options=options)
+    # 启动前检测浏览器版本并下载对应的驱动
+    browser = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
     browser.get(URL)
     time.sleep(1)
     clockInTimeThisMonth = calendarRead(browser)
     head = browser.find_element(By.XPATH, '//*[@id="getMonthData"]/em')
     head.click()
-    time.sleep(1)
+    time.sleep(0.5)
 
     clockInTimeLastMonth = calendarRead(browser)
     logging.info("本月天数: %d", len(clockInTimeThisMonth))
@@ -172,7 +306,7 @@ def calendarRead(browser):
     return clockInTimeMonthly
 
 
-def showUI(weeklyClockInDict, totalTime):
+def showUI(weeklyClockInDict, totalTime, lastWeekTotalTime):
     app = QApplication(sys.argv)
     w = QWidget()
     w.resize(600, 300)
@@ -181,10 +315,13 @@ def showUI(weeklyClockInDict, totalTime):
     size = w.geometry()
     w.move((screen.width() - size.width()) / 2, (screen.height() - size.height()) / 2)
 
-    w.setWindowTitle("打卡时长统计助手 v1.1")
+    w.setWindowTitle("打卡时长统计助手 v1.2")
     w.setWindowIcon(QIcon("icon.ico"))
 
     text = QPlainTextEdit(w)
+    # 增加上周打卡时间记录
+    content = "上周累计打卡时间：" + str(round(lastWeekTotalTime, 2)) + " 小时"
+    text.appendPlainText(content)
     weekday = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
     index = 0
     for key in weeklyClockInDict:
@@ -275,6 +412,7 @@ def login(phoneNumber, password):
 if __name__ == "__main__":
     phoneNumber, password = userInformationRead()
     URL = login(phoneNumber, password)
+    print(URL)
     thisMonth, lastMonth = spider(URL)
-    totalTime = calculate(thisMonth, lastMonth)
-    showUI(weeklyClockInDict, totalTime)
+    totalTime, lastWeekTotalTime = calculate(thisMonth, lastMonth)
+    showUI(weeklyClockInDict, totalTime, lastWeekTotalTime)
