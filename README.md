@@ -1,4 +1,4 @@
-### AttendanceStatisticsAssistant  v1.1
+### AttendanceStatisticsAssistant  v1.2
 得力e+ APP打卡时间统计工具
 
 ### 仅用于统计打卡时长，无其他功能
