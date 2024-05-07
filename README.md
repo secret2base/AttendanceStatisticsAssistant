@@ -1,5 +1,8 @@
-### AttendanceStatisticsAssistant  v1.2
+### AttendanceStatisticsAssistant  v1.3
 得力e+ APP打卡时间统计工具
+
+### 修复bug
+1.3版本修复了偶见上周时间统计时长为0的错误
 
 ### 仅用于统计打卡时长，无其他功能
 相较于1.1版,1.2版本更新内容如下
