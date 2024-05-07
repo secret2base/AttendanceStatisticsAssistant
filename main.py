@@ -109,6 +109,9 @@ def calculate2(clockInTimeThisMonth, clockInTimeLastMonth):
     根据这两个数组计算每天的考勤时间
 '''
 def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
+
+    funcStartTime = time.time()
+
     # 根据当前时间确定日期与周次
     theDateToday = datetime.datetime.today()
     theWeekToday = theDateToday.isoweekday()
@@ -137,15 +140,22 @@ def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
     #     clockInTimeSum = clockInTimeSum \
     #                      + sumTime(len(clockInTimeLastMonth) + startDayThisWeek, len(clockInTimeLastMonth), clockInTimeLastMonth) \
     #                      + sumTime(1, time_tuple[2], clockInTimeThisMonth)
-
-    if firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month == theDateToday.month:
+    # print("firstDayLastWeek: ", firstDayLastWeek.month)
+    # print("lastDayLastWeek: ", lastDayLastWeek.month)
+    if firstDayLastWeek.month == lastDayLastWeek.month and firstDayLastWeek.month == theDateToday.month:
         lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeThisMonth,0)
-    elif firstDayLastWeek.month == lastDayLastWeek.month & firstDayLastWeek.month != theDateToday.month:
+    elif firstDayLastWeek.month == lastDayLastWeek.month and firstDayLastWeek.month != theDateToday.month:
         lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayLastWeek.day, clockInTimeLastMonth,0)
     else:
         lastDayOfLastMonth = datetime.date(firstDayLastWeek.year + int(firstDayLastWeek.month / 12), (firstDayLastWeek.month % 12) + 1, 1) - datetime.timedelta(days=1)
+        # print("上周的起始日期：", firstDayLastWeek.day)
+        # print("上个月的结束日期： ", lastDayOfLastMonth.day)
+        # print("上周的结束日期： ", lastDayLastWeek.day)
+        # print("前半段的总时间： ", sumTime(firstDayLastWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,0))
+        # print("后半段的总时间： ", sumTime(1, lastDayLastWeek.day, clockInTimeThisMonth,0))
         lastWeekTotalTime = lastWeekTotalTime + sumTime(firstDayLastWeek.day, lastDayOfLastMonth.day, clockInTimeLastMonth,0) + sumTime(1, lastDayLastWeek.day, clockInTimeThisMonth,0)
 
+    logging.info("calculate function cost time: %f s", time.time() - funcStartTime)
     return clockInTimeSum,lastWeekTotalTime
 
 '''
@@ -155,7 +165,7 @@ def calculate(clockInTimeThisMonth, clockInTimeLastMonth):
 def sumTime(startDay, endDay, clockInTimeMonthly, flag):
     # i+1为当天日期，clockInTimeMonthly[i]为当天所有打卡时间
 
-    startTime = time.time()
+    funcStartTime = time.time()
 
     clockInTimeSum = 0
     logging.info("起始日期: %d", startDay)
@@ -193,24 +203,10 @@ def sumTime(startDay, endDay, clockInTimeMonthly, flag):
                               int(clockInTimeMonthly[i][unused + m + a + e - 1][1]) - int(
                           clockInTimeMonthly[i][unused + m + a][1])) * 1.0 / 60
             clockInTimeDaily = clockInTimeDaily + tmp
-        # print("晚上时间：", clockInTimeDaily)
-        # 分别计算三个时段的时间
-
-        # while j < len(clockInTimeMonthly[i])-1:
-        #     # print("j:", j)
-        #     if isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) == 0:
-        #         clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j+1][0]) - 13 + (int(clockInTimeMonthly[i][j+1][1]) - 30)*1.0/60
-        #         j = j + 2
-        #     elif isCorrectTimeSlot(clockInTimeMonthly[i][j], clockInTimeMonthly[i][j+1]) > 0:
-        #         clockInTimeDaily = clockInTimeDaily + int(clockInTimeMonthly[i][j + 1][0]) - int(clockInTimeMonthly[i][j][0]) + (int(clockInTimeMonthly[i][j + 1][1]) - int(clockInTimeMonthly[i][j][1])) * 1.0 / 60
-        #         j = j + 2
-        #     else:
-        #         j = j + 1
-        # print("    ClockInTimeToday: {:.2f}".format(clockInTimeDaily), "hours")
         if flag == 1:
             weeklyClockInDict[i+1] = clockInTimeDaily
         clockInTimeSum = clockInTimeSum + clockInTimeDaily
-    logging.info("sumTime Cost: %f s", time.time()-startTime)
+    logging.info("sumTime function cost time: %f s", time.time()-funcStartTime)
     return clockInTimeSum
 
 
@@ -231,56 +227,41 @@ def timePartition(dailyClockInTime):
     return unused, morning, afternoon, evening
 
 '''
-    isCorrectTimeSlot函数用于判断打卡的时间是否在规定时间内
-    返回值0代表中午12:30-1:30
-    返回值1代表上午正常打卡时间
-    返回值2代表下午正常打卡时间
-    返回值3代表晚上正常打卡时间（12:00之前）
-    返回值-1代表其他时间
-'''
-def isCorrectTimeSlot(startTime, endTime):
-    if int(startTime[0])*60+int(startTime[1]) >= 450 and int(endTime[0])*60+int(endTime[1]) <= 750:
-        return 1
-    elif int(startTime[0])*60+int(startTime[1]) >= 755 and int(startTime[0])*60+int(startTime[1]) <= 810 and int(endTime[0])*60+int(endTime[1]) <= 1110:
-        return 0
-    elif int(startTime[0])*60+int(startTime[1]) >= 810 and int(endTime[0])*60+int(endTime[1]) <= 1110:
-        return 2
-    elif int(startTime[0])*60+int(startTime[1]) >= 1115 and int(endTime[0])*60+int(endTime[1]) <= 1439:
-        return 3
-    else:
-        return -1
-
-'''
     spider函数用于根据URL爬取当月考勤数据，生成当月已有打卡时间数据
     补充：需要上个月的考勤数据
 '''
 def spider(URL):
 
+    funcStartTime=time.time()
+
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('log-level=3')
 
-    # browser = webdriver.Chrome(options=options)
+
     # 启动前检测浏览器版本并下载对应的驱动
     browser = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
+    logging.info("Check before setup cost time: %f s", time.time() - funcStartTime)
     browser.get(URL)
-    time.sleep(1)
+    time.sleep(0.3)
     clockInTimeThisMonth = calendarRead(browser)
+    logging.info("first month read cost time: %f s", time.time() - funcStartTime)
     head = browser.find_element(By.XPATH, '//*[@id="getMonthData"]/em')
+    logging.info("button click cost time: %f s", time.time() - funcStartTime)
     head.click()
-    time.sleep(0.5)
-
+    time.sleep(0.3)
+    logging.info("spider main cost time: %f s", time.time() - funcStartTime)
     clockInTimeLastMonth = calendarRead(browser)
-    logging.info("本月天数: %d", len(clockInTimeThisMonth))
-    logging.info("上月天数: %d", len(clockInTimeLastMonth))
+    # logging.info("本月天数: %d", len(clockInTimeThisMonth))
+    # logging.info("上月天数: %d", len(clockInTimeLastMonth))
 
     browser.quit()
-
+    logging.info("spider function cost time: %f s", time.time() - funcStartTime)
     return clockInTimeThisMonth, clockInTimeLastMonth
 
 
 def calendarRead(browser):
-    startTime = time.time()
+    funcStartTime = time.time()
 
     sourceCode = BeautifulSoup(browser.page_source, "html.parser")
     # with open('test.txt', 'w') as f:
@@ -302,7 +283,7 @@ def calendarRead(browser):
         timeStamp = re.findall(pattern, monthlyRecord[i])
         clockInTimeMonthly.append(timeStamp)
 
-    logging.info("calendarRead Cost: %f s", time.time()-startTime)
+    logging.info("calendar function cost time: %f s", time.time()-funcStartTime)
     return clockInTimeMonthly
 
 
@@ -350,7 +331,7 @@ def showUI(weeklyClockInDict, totalTime, lastWeekTotalTime):
 
 def login(phoneNumber, password):
     # Get Login Token and User_id
-    startTime = time.time()
+    funcStartTime = time.time()
 
     rLogin = requests.post("https://v2-app.delicloud.com/api/v2.0/auth/loginMobile",
                        headers=headerLogin,
@@ -406,13 +387,12 @@ def login(phoneNumber, password):
     result = goalInfo["data"]["list"][0]["url"]
     logging.info("URL of Calendar: %s", result)
 
-    logging.info("LoginIn Cost: %f s", time.time()-startTime)
+    logging.info("Login function cost time: %f s", time.time()-funcStartTime)
     return result
 
 if __name__ == "__main__":
     phoneNumber, password = userInformationRead()
     URL = login(phoneNumber, password)
-    print(URL)
     thisMonth, lastMonth = spider(URL)
     totalTime, lastWeekTotalTime = calculate(thisMonth, lastMonth)
     showUI(weeklyClockInDict, totalTime, lastWeekTotalTime)
